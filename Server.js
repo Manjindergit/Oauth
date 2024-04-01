@@ -6,10 +6,6 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const clientId = process.env.CLIENT_ID;
-const clientSecret = process.env.CLIENT_SECRET;
-
-
 let authCode = null;
 let state = null;
 
@@ -20,10 +16,12 @@ app.get('/authorize', (req, res) => {
     res.redirect(`${redirectUri}?code=${authCode}&state=${state}`);
  });
 
-app.post('/token', express.json(), (req, res) => {
+ app.post('/token', express.json(), (req, res) => {
     const {code, state: clientState} = req.body;
     if (code === authCode && clientState === state) {
-        res.json({access_token: 'sdf'});
+        const expiresIn = 60 * 60; // Token expires in 1 hour
+        const expiration = Math.floor(Date.now() / 1000) + expiresIn; // Current timestamp in seconds + expiration time 
+        res.json({access_token: 'a', expires_in: expiresIn, expiration});
     } else {
         res.status(400).send('Invalid authorization code or state');
     }
