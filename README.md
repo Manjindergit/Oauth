@@ -10,3 +10,6 @@ Note: Make sure give proper authorization to all the files and directoryu
 
 
 If using axios , errror will be recieved for self signed certificate, for that set rejectUnauthorized: false
+
+
+Create dotenv file for client info, as if we use a separate system for it would get too complicated
