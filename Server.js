@@ -11,11 +11,20 @@ let authCode = null;
 let state = null;
 let codeChallenge = null;
 
+const validRedirectUris = ['https://localhost:4000/callback'];
+
 app.get('/authorize', (req, res) => {
     authCode = '123456'; // In a real application, generate a new code for each authorization request
     state = Math.random().toString(36).substring(7); // Generate a new state parameter for each authorization request
     codeChallenge =req.query.code_challenge;
     const redirectUri = req.query.redirect_uri;
+console.log(redirectUri);
+    if (!validRedirectUris.includes(redirectUri)) {
+        // Invalid redirect URI, respond with an error
+        res.status(400).json({ error: 'Invalid redirect URI' });
+        return;
+    }
+
     res.redirect(`${redirectUri}?code=${authCode}&state=${state}`);
  });
 
