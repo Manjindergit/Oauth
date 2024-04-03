@@ -68,11 +68,11 @@ Create a new directory for your project and initialize it with npm:
 `npm init -y`
 
 #### Step 2: Install the necessary packages
-Install the necessary packages (express, crypto, etc.):
+Install the necessary packages (express, crypto, axios etc.):
 
 `npm install express dotenv https fs path crypto express-session`
 
-# Step 3: Create a .env file
+#### Step 3: Create a .env file
 Create a .env file in your project root directory to store environment variables:
 
 `touch .env`
@@ -81,9 +81,8 @@ Open the .env file and add the following lines:
 
 `AUTH_CODE=your_auth_code`
 
-`VALID_REDIRECT_URIS=url`
 
-Replace your_auth_code and url with your actual values.
+Replace your_auth_code with your actual values.
 
 #### Step 4: Generate SSL Certificate for HTTPS
 To set up HTTPS, you need to generate a self-signed SSL certificate. Run the following command:
@@ -101,8 +100,70 @@ If you’re using axios, you might receive an error for the self-signed certific
     rejectUnauthorized: false
 });`
 
+#### Step 5: Create two separate servers, for client and one for authorising server
+
+
+```js
+//Server.js
+const express = require('express');
+const app = express();
+const port = 3000;
+
+app.get('/', (req, res) => {
+  res.send('Hello World!');
+});
+
+app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
+});
+```
+```js
+//Client.js
+const axios = require('axios');
+
+axios.get('http://localhost:3000')
+  .then(response => {
+    console.log(response.data);
+  })
+  .catch(error => {
+    console.log(error);
+  });
+```
+Please make sure to install the necessary npm packages (express for the server and axios for the client) by running npm install express axios in your project directory. Also, you should run the server
+
+```js
+sslServer.listen(4000, () => console.log('Client app started on port 4000'));
+```
+
+Now your basic Client and Server are running, you have to implement Authorization Code Flow with PKCE, Access Token Issuance, Authorization Server to demonstrate a simplified implementation of Oauth.
 
 ## 7. Troubleshooting Guide
 This section provides solutions for common errors or issues you may encounter.
-|Error|Issue|Solution|
-|--|--|--|
+| Error | Issue | Solution |
+| --- | --- | --- |
+| EACCES: permission denied | This error occurs when Node.js does not have the necessary permissions to access a file or directory. | Run the command with sudo or change the permissions of the file or directory. |
+| Error: Cannot find module 'express' | This error occurs when the ‘express’ module is not installed in your project. | Run `npm install express` in your project directory. |
+| Error: Cannot find module 'axios' | This error occurs when the ‘axios’ module is not installed in your project. | Run `npm install axios` in your project directory. |
+| Error: self signed certificate | This error occurs when using axios with a self-signed SSL certificate. | Create a new https agent with `rejectUnauthorized` set to false and use it in your axios request. |
+| Error: listen EADDRINUSE: address already in use :::3000 | This error occurs when the port you are trying to use is already in use. | Change the port number or stop the process that is using the port. You can find the process using the port with the command `lsof -i :3000` and stop it with `kill -9 <PID>`. |
+| Error: ENOENT: no such file or directory, open '.env' | This error occurs when the ‘.env’ file does not exist in your project directory. | Create a ‘.env’ file in your project directory with the command `touch .env`. |
+
+
+## Reflection Question
+
+1. How has your understanding of OAuth 2.0 and its flow improved after completing this lab? What were the most challenging concepts to grasp?
+2. What were some challenges you faced while implementing the OAuth 2.0 flow in Node.js? How did you overcome these challenges?
+3. How did this lab help you understand the importance of security in handling user data and authentication? Can you identify potential security risks and ways to mitigate them in your implementation?
+4. How can the knowledge gained from this lab be applied to real-world applications? Can you think of any scenarios where implementing OAuth 2.0 would be beneficial?
+5. What are some areas related to OAuth 2.0 and authentication that you’re interested in exploring further? 
+
+
+## Rubric for Evaluation
+
+| Criteria | Excellent | Good | Satisfactory | Needs Improvement | Unsatisfactory |
+|----------|-----------|------|--------------|-------------------|----------------|
+| Understanding of OAuth 2.0 | Demonstrates excellent understanding | Demonstrates good understanding | Demonstrates satisfactory understanding | Demonstrates a need for improvement in understanding | Demonstrates unsatisfactory understanding |
+| Correct Implementation of OAuth 2.0 Flow | Excellent implementation | Good implementation | Satisfactory implementation | Implementation needs improvement | Unsatisfactory implementation |
+| Lab Report Completion | All sections of the lab report are excellently completed | Most sections of the lab report are well completed | Lab report is satisfactorily completed | Lab report completion needs improvement | Lab report is unsatisfactorily completed |
+| Reflection | Provides excellent reflection on the lab experience | Provides good reflection on the lab experience | Provides satisfactory reflection on the lab experience | Reflection on the lab experience needs improvement | Provides unsatisfactory reflection on the lab experience |
+| Ethical Considerations | Demonstrates excellent understanding of ethical considerations | Demonstrates good understanding of ethical considerations | Demonstrates satisfactory understanding of ethical considerations | Understanding of ethical considerations needs improvement | Demonstrates unsatisfactory understanding of ethical considerations |
