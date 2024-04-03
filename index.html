@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>OAuth Demo</title>
+</head>
+
+<body>
+    <button id="login">Login</button>
+    <button id="logout">Logout</button>
+    <div id="response"></div>
+
+    <script>
+        document.getElementById('login').addEventListener('click', function () {
+
+            fetch('/login')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('response').innerText = `Logged in with access token: ${data.accessToken}`;
+                });
+        });
+
+        document.getElementById('logout').addEventListener('click', function () {
+
+            fetch('/logout')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('response').innerText = `Logged out`;
+                });
+        });
+
+           
+    </script>
+</body>
+
+</html>
