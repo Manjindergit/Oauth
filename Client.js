@@ -9,18 +9,24 @@ const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
 
+app.use(session({
+    secret  : 'mySecret',   
+    resave : false,
+    saveUninitialized : true
+}));
 
+//This is for pkce
 const clientId = process.env.CLIENT_ID;
 const codeVerifier = crypto.randomBytes(64).toString('hex');
+let state = null;
 
 
 app.get('/login', async (req, res) => {
-
+    let requestedScopes = 'read write';
     const codeChallenge = generateCodeChallenge(codeVerifier);
-
-
+    state = generateState();
     const redirectUri = 'https://localhost:4000/callback';
-    res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}&code_challenge_method=S256`);
+    res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&state=${state}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}&code_challenge_method=S256&scope=${requestedScopes}`);
 });
 
 //This for self signed certificate
@@ -53,20 +59,8 @@ app.get('/callback', async (req, res) => {
         req.session = { accessToken, expiration };
         console.log(req.session);
         res.send(`
-    You are logged in. 
-    <button id="myButton">Get Data</button>
-    <script>
-        document.getElementById('myButton').addEventListener('click', function() {
-            fetch('https://localhost:3000/data')
-                .then(response => response.json())
-                .then(data => {
-                    // Do something with the data
-                    console.log(data);
-                })
-                .catch(error => console.error('Error:', error));
-        });
-    </script>
-`);
+    Your access token is: ${accessToken} and the approved scope is: ${req.session.scope}
+ `);
 
     } catch (error) {
         console.error(`Error in POST request: ${error}`);
@@ -111,4 +105,8 @@ function generateCodeChallenge(codeVerifier) {
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
+}
+
+function generateState() {
+    return Math.random().toString(36).substring(7);
 }

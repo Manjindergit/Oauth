@@ -15,21 +15,29 @@ app.use(session({
 }));
 
 let authCode = process.env.AUTH_CODE;
-let state = null;
 let codeChallenge = null;
+let validScopes = ['read', 'write', 'delete'];
+
 
 const validRedirectUris = process.env.VALID_REDIRECT_URIS;
 
 app.get('/authorize', (req, res) => {
-    state = generateState();
+    
     codeChallenge = req.query.code_challenge;
     const redirectUri = req.query.redirect_uri;
+    let requestedScopes = req.query.scope.split(' ');
 
     if (!validRedirectUris.includes(redirectUri)) {
         res.status(400).json({ error: 'Invalid redirect URI' });
         return;
     }
 
+    if (!requestedScopes.every(scope => validScopes.includes(scope))) {
+        res.status(400).json({ error: 'Invalid scope' });
+        return;
+    }
+
+    req.session.scope = requestedScopes;
     res.redirect(`${redirectUri}?code=${authCode}&state=${state}`);
 });
 
@@ -49,7 +57,7 @@ app.post('/token', express.json(), (req, res) => {
 
         req.session.expire = expiration; 
 
-        res.json({ access_token: 'sdf', expires_in: expiresIn, expiration });
+        res.json({ access_token: 'sdf', expires_in: expiresIn, expiration, scope: req.session.scope });
     } else {
         res.status(400).send('Invalid authorization code or state');
     }
@@ -71,7 +79,7 @@ app.get('/data', (req, res) => {
     }
 });
 
-
+//This is for general error handling
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
@@ -84,9 +92,7 @@ const sslServer = https.createServer({
 
 sslServer.listen(3000, () => console.log('Server app started on port 3000'));
 
-function generateState() {
-    return Math.random().toString(36).substring(7);
-}
+
 
 function generateCodeChallenge(clientCodeVerifier) {
     const hash = crypto.createHash('sha256');

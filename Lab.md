@@ -53,9 +53,6 @@ For the local development environment, the recommended settings are:
 - **Hard Disk Space**: At least 20 GB
 - **Software**: Node.js and npm installed
 
-Remember to replace `apt-get` with `apt` if you are using a newer version of Kali Linux. Also, you might need to use `nodejs -v` instead of `node -v` to check the Node.js version, depending on your Kali Linux version. If you want to use `node -v`, you can create a symbolic link between `node` and `nodejs` by running `sudo ln -s /usr/bin/nodejs /usr/bin/node`. This is because, in some versions of Linux, the binary is named `nodejs` instead of `node` due to a naming conflict.
-
-
 ### 6.2 Implementing OAuth 2.0 Server
 
 #### Step 1: Create a new Node.js project

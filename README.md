@@ -13,3 +13,9 @@ If using axios , errror will be recieved for self signed certificate, for that s
 
 
 Create dotenv file for client info, as if we use a separate system for it would get too complicated
+
+This was for cors
+https://javascript.info/fetch-crossorigin
+
+https://stackoverflow.com/questions/61238680/access-to-fetch-at-from-origin-http-localhost3000-has-been-blocked-by-cors
+
