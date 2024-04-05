@@ -8,6 +8,14 @@ const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
 
+// For CORS in browser during demo
+const cors = require('cors');
+const corsOptions = {
+    origin: 'https://localhost:4000',
+  };
+  
+  app.use(cors(corsOptions));
+
 app.use(session({
     secret: 'mySecret',
     resave: false,
@@ -20,6 +28,7 @@ let validScopes = ['read', 'write', 'delete'];
 
 
 const validRedirectUris = process.env.VALID_REDIRECT_URIS;
+
 
 app.get('/authorize', (req, res) => {
     

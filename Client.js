@@ -20,6 +20,10 @@ const clientId = process.env.CLIENT_ID;
 const codeVerifier = crypto.randomBytes(64).toString('hex');
 let state = null;
 
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 
 app.get('/login', async (req, res) => {
     let requestedScopes = 'read write';
@@ -58,25 +62,27 @@ app.get('/callback', async (req, res) => {
         const expiration = Date.now() + expiresIn * 1000;
         req.session = { accessToken, expiration };
         console.log(req.session);
-        res.send(`
-    Your access token is: ${accessToken} and the approved scope is: ${req.session.scope}
- `);
+        // Redirect to a new route to fetch and display data
+        res.redirect('/data');
 
     } catch (error) {
         console.error(`Error in POST request: ${error}`);
         res.status(500).send('An error occurred.');
     }
-})
+});
 
-// app.get('/get-token', (req, res) => {
-//     if (req.session && req.session.accessToken) {
-//         res.json({ accessToken: req.session.accessToken });
-//     } else {
-//         res.status(401).send('Not logged in');
-//     }
-// });
-
-
+app.get('/data', async (req, res) => {
+    try {
+        const accessToken = req.session.accessToken;
+        const response = await axios.get('https://localhost:3000/data', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error(`Error fetching data: ${error.message}`);
+        res.status(500).send('An error occurred.');
+    }
+});
 
 app.get('/logged-out', (req, res) => {
     console.log('it comes here');

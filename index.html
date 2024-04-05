@@ -1,36 +1,34 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OAuth Demo</title>
 </head>
-
 <body>
     <button id="login">Login</button>
     <button id="logout">Logout</button>
     <div id="response"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        document.getElementById('login').addEventListener('click', function () {
-
-            fetch('/login')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('response').innerText = `Logged in with access token: ${data.accessToken}`;
-                });
+        document.getElementById('login').addEventListener('click', async function () {
+            try {
+                const response = await axios.get('/login');
+                document.getElementById('response').innerText = response.data;
+            } catch (error) {
+                console.error('Error logging in:', error.message);
+            }
         });
 
-        document.getElementById('logout').addEventListener('click', function () {
-
-            fetch('/logout')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('response').innerText = `Logged out`;
-                });
+        document.getElementById('logout').addEventListener('click', async function () {
+            try {
+                const response = await axios.get('/logged-out');
+                document.getElementById('response').innerText = response.data;
+            } catch (error) {
+                console.error('Error logging out:', error.message);
+            }
         });
-
-           
     </script>
 </body>
-
 </html>
