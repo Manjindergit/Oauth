@@ -10,23 +10,30 @@ const crypto = require('crypto');
 const session = require('express-session');
 const cors = require('cors');
 
+app.use(cors({
+    origin: 'https://localhost:4000', // Allow the client origin
+    credentials: true // Allow credentials (cookies)
+}));
+
 app.use(session({
     secret: 'password',
-    resave: false,
+    resave: true,
     saveUninitialized: true,
     cookie: { secure: false },
-    SameSite: 'None'
+    SameSite: 'lax',
+    maxAge: 60000
    
 }));
 
+let state = null;
 const clientId = process.env.CLIENT_ID;
 const codeVerifier = crypto.randomBytes(64).toString('hex');
 
-
 app.get('/login', async (req, res) => {
+    state = generateState();
     const codeChallenge = generateCodeChallenge(codeVerifier);
     const redirectUri = 'https://localhost:4000/callback';
-    res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}&code_challenge_method=S256`);
+    res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`);
 });
 
 
@@ -53,11 +60,13 @@ const httpsAgent = new https.Agent({
 app.get('/callback', async (req, res) => {
     try {
         const { code, state } = req.query;
+        console.log(state);
+        console.log(req.session);
         const response = await axios.post('https://localhost:3000/token', { code, state, code_verifier: codeVerifier }, { httpsAgent });
         const { access_token: accessToken, expires_in: expiresIn } = response.data;
         const expiration = Date.now() + expiresIn * 1000;
-        req.session.accessToken = accessToken; // Store the access token in the session
-        req.session.expiration = expiration; // Store the expiration time in the session
+       // req.session.accessToken = accessToken; // Store the access token in the session
+       // req.session.expiration = expiration; // Store the expiration time in the session
         console.log(req.session.accessToken);
         res.send(`
         You are logged in with access token: ${accessToken}
@@ -91,4 +100,8 @@ function generateCodeChallenge(codeVerifier) {
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
+}
+
+function generateState() {
+    return Math.random().toString(36).substring(7);
 }
