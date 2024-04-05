@@ -22,7 +22,7 @@ app.use(session({
     cookie: { secure: false },
     SameSite: 'lax',
     maxAge: 60000
-   
+
 }));
 
 let state = null;
@@ -42,21 +42,6 @@ const httpsAgent = new https.Agent({
 });
 
 
-// app.use((req, res, next) => {
-//     // If there's no session or the token has expired, redirect the user to /logged-out
-//     if (Date.now() > req.session.expiration) {
-//         console.log('Session expired due to token expiration, redirecting...');
-//         res.redirect('/logged-out');
-//         res.end();
-
-//     } else {
-//         next();
-//     }
-// });
-
-
-
-
 app.get('/callback', async (req, res) => {
     try {
         const { code, state } = req.query;
@@ -64,14 +49,19 @@ app.get('/callback', async (req, res) => {
         console.log(req.session);
         const response = await axios.post('https://localhost:3000/token', { code, state, code_verifier: codeVerifier }, { httpsAgent });
         const { access_token: accessToken, expires_in: expiresIn } = response.data;
-        const expiration = Date.now() + expiresIn * 1000;
-       // req.session.accessToken = accessToken; // Store the access token in the session
-       // req.session.expiration = expiration; // Store the expiration time in the session
-        console.log(req.session.accessToken);
-        res.send(`
-        You are logged in with access token: ${accessToken}
+
+        //if got data successfully, create a session for the user and store the access token, expires in and state in the session and create a button that would redirec to /data route to get the data
+        req.session.accessToken = accessToken;
+        req.session.expiresIn = expiresIn;
+        req.session.state = state;
+        req.session.save();
+
+        fetchData(accessToken, state, codeVerifier);
         
-`);
+       
+
+
+
 
     } catch (error) {
         console.error(`Error in POST request: ${error}`);
@@ -79,11 +69,28 @@ app.get('/callback', async (req, res) => {
     }
 })
 
-app.get('/logged-out', (req, res) => {
-    console.log('it comes here');
-    req.session = null;
-    res.send('You have been logged out.');
-});
+//create a function that would get the data from the server
+
+async function fetchData(accessToken, state, codeVerifier) {
+    try {
+        const response = await axios.get('https://localhost:3000/data', {
+            httpsAgent,
+            headers: {
+                Authorization: `Bearer ${accessToken}`
+            }
+        });
+
+        //display the data in the console and in the client app
+        console.log(response.data);
+        
+
+    } catch (error) {
+        console.error(`Error in GET request: ${error}`);
+    }
+}
+
+
+
 
 const sslServer = https.createServer({
     key: fs.readFileSync('./key.pem'),
