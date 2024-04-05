@@ -7,12 +7,22 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
+const cors = require('cors');
+
+app.use(cors({
+    origin: 'https://localhost:4000', // Allow the client origin
+    credentials: true // Allow credentials (cookies)
+}));
 
 app.use(session({
-    secret: 'mySecret',
+    secret: 'password',
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    cookie: { secure: false },
+    SameSite: 'None'
+
 }));
+
 
 let authCode = process.env.AUTH_CODE;
 let state = null;
@@ -20,16 +30,20 @@ let codeChallenge = null;
 
 const validRedirectUris = process.env.VALID_REDIRECT_URIS;
 
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).send('Something broke!');
+});
+
+
 app.get('/authorize', (req, res) => {
     state = generateState();
     codeChallenge = req.query.code_challenge;
     const redirectUri = req.query.redirect_uri;
-
     if (!validRedirectUris.includes(redirectUri)) {
         res.status(400).json({ error: 'Invalid redirect URI' });
         return;
     }
-
     res.redirect(`${redirectUri}?code=${authCode}&state=${state}`);
 });
 
@@ -44,11 +58,11 @@ app.post('/token', express.json(), (req, res) => {
     }
 
     if (code === authCode && clientState === state) {
-        const expiresIn = 60*60; // Token expires in 1 hour
+        const expiresIn = 60 * 60;
         const expiration = Math.floor(Date.now() / 1000) + expiresIn;
-
-        req.session.expire = expiration; 
-
+        req.session.expire = expiration;
+        req.session.accessToken = 'sdf'; 
+        req.session.save();
         res.json({ access_token: 'sdf', expires_in: expiresIn, expiration });
     } else {
         res.status(400).send('Invalid authorization code or state');
@@ -56,25 +70,23 @@ app.post('/token', express.json(), (req, res) => {
 });
 
 app.get('/data', (req, res) => {
-    console.log('it came her');
-    // Check if the session exists and if the token has not expired
-    if (Date.now() < req.session.expire){
-        // The session exists and the token has not expired, proceed with fetching the data
-        // Fetch the data from your data source here. This is just a placeholder.
+    console.log('it came here');
+    console.log('Expiration time:', req.session.expire);
+    if (Date.now() < req.session.expire) {
         const data = { message: 'Here is your data!' };
-
-        // Send the data to the client
         res.json(data);
     } else {
-        // No session or the token has expired, send an appropriate response
         res.status(401).send('Not logged in or session expired');
     }
 });
 
+app.get('/test', (req, res) => {
+    req.session.test = 'Hello, world!';
+    res.send('Test value set in session');
+});
 
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
+app.get('/check', (req, res) => {
+    res.send('Test value from session: ' + req.session.test);
 });
 
 const sslServer = https.createServer({

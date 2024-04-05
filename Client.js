@@ -8,22 +8,28 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
+const cors = require('cors');
 
+app.use(session({
+    secret: 'password',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false },
+    SameSite: 'None'
+   
+}));
 
 const clientId = process.env.CLIENT_ID;
 const codeVerifier = crypto.randomBytes(64).toString('hex');
 
 
 app.get('/login', async (req, res) => {
-
     const codeChallenge = generateCodeChallenge(codeVerifier);
-
-
     const redirectUri = 'https://localhost:4000/callback';
     res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}&code_challenge_method=S256`);
 });
 
-//This for self signed certificate
+
 const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
@@ -50,22 +56,12 @@ app.get('/callback', async (req, res) => {
         const response = await axios.post('https://localhost:3000/token', { code, state, code_verifier: codeVerifier }, { httpsAgent });
         const { access_token: accessToken, expires_in: expiresIn } = response.data;
         const expiration = Date.now() + expiresIn * 1000;
-        req.session = { accessToken, expiration };
-        console.log(req.session);
+        req.session.accessToken = accessToken; // Store the access token in the session
+        req.session.expiration = expiration; // Store the expiration time in the session
+        console.log(req.session.accessToken);
         res.send(`
-    You are logged in. 
-    <button id="myButton">Get Data</button>
-    <script>
-        document.getElementById('myButton').addEventListener('click', function() {
-            fetch('https://localhost:3000/data')
-                .then(response => response.json())
-                .then(data => {
-                    // Do something with the data
-                    console.log(data);
-                })
-                .catch(error => console.error('Error:', error));
-        });
-    </script>
+        You are logged in with access token: ${accessToken}
+        
 `);
 
     } catch (error) {
@@ -74,25 +70,11 @@ app.get('/callback', async (req, res) => {
     }
 })
 
-// app.get('/get-token', (req, res) => {
-//     if (req.session && req.session.accessToken) {
-//         res.json({ accessToken: req.session.accessToken });
-//     } else {
-//         res.status(401).send('Not logged in');
-//     }
-// });
-
-
-
 app.get('/logged-out', (req, res) => {
     console.log('it comes here');
-    // Destroy the session or clear the access token and expiration
     req.session = null;
-    // Send a response to the user
     res.send('You have been logged out.');
 });
-
-
 
 const sslServer = https.createServer({
     key: fs.readFileSync('./key.pem'),
@@ -100,8 +82,6 @@ const sslServer = https.createServer({
 }, app);
 
 sslServer.listen(4000, () => console.log('Client app started on port 4000'));
-
-
 
 function generateCodeChallenge(codeVerifier) {
     const hash = crypto.createHash('sha256');
