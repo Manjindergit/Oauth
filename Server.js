@@ -1,14 +1,17 @@
+// Load environment variables from .env file
 require('dotenv').config();
 
+// Import required modules
 const express = require('express');
-const app = express();
 const https = require('https');
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
 const cors = require('cors');
 const MongoDBStore = require('connect-mongodb-session')(session);
+
+// Initialize Express app
+const app = express();
 
 // Create a new MongoDB store
 var store = new MongoDBStore({
@@ -16,12 +19,13 @@ var store = new MongoDBStore({
     collection: 'mySessions'
 });
 
-// Catch errors
+// Log errors from the MongoDB store
 store.on('error', function (error) {
-    console.log(error);
+    console.error(error);
 });
 
-app.use(require('express-session')({
+// Use express-session middleware with MongoDB store
+app.use(session({
     secret: 'This is a secret',
     cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
@@ -31,62 +35,70 @@ app.use(require('express-session')({
     saveUninitialized: true
 }));
 
+// Use CORS middleware to allow requests from the client origin
 app.use(cors({
     origin: 'https://localhost:4000', // Allow the client origin
     credentials: true // Allow credentials (cookies)
 }));
 
-
+// Define variables for authorization code and code challenge
 let authCode = process.env.AUTH_CODE;
-
 let codeChallenge = null;
 
+// Get valid redirect URIs from environment variables
 const validRedirectUris = process.env.VALID_REDIRECT_URIS;
 
+// Middleware to handle errors
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
 
 
+// Route to handle authorization requests
 app.get('/authorize', (req, res) => {
-
-
-    //clear all the data stored in mongodb
+    // Clear all the data stored in MongoDB
     store.clear(function (error) {
-        console.log('mongo function error');
-    }
-    );
+        if (error) {
+            console.error('Error clearing MongoDB:', error);
+        }
+    });
 
+    // Get code challenge and redirect URI from request query
     codeChallenge = req.query.code_challenge;
     const redirectUri = req.query.redirect_uri;
+
+    // Store state in session
     req.session.state = req.query.state;
 
+    // Save session
     req.session.save((err) => {
-        // handle error if there is one
+        // Handle error if there is one
         if (err) {
-            console.error(err);
+            console.error('Error saving session:', err);
             res.status(506).send('Session could not be saved');
             return;
         }
 
-        // ... existing code ...
+        // Check if redirect URI is valid
         if (!validRedirectUris.includes(redirectUri) || !req.session.state) {
             res.status(400).json({ error: 'Invalid redirect URI' });
             return;
         }
 
+        // Save session again
         req.session.save();
 
+        // Redirect to the provided redirect URI with the authorization code and state
         res.redirect(`${redirectUri}?code=${authCode}&state=${req.session.state}`);
     });
-
 });
 
+// Route to handle token requests
 app.post('/token', express.json(), async (req, res) => {
     const { code, state: clientState, code_verifier: clientCodeVerifier } = req.body;
 
-    //get state stored in session in mongodb and store it in a variable
+    // Get state stored in session in MongoDB and store it in a variable
     let state = null;
     let sessionId = null;
 
@@ -102,8 +114,7 @@ app.post('/token', express.json(), async (req, res) => {
         });
 
         state = sessions[0].session.state;
-        sessionId = sessions[0]._id; // get the session id
-
+        sessionId = sessions[0]._id; // Get the session id
 
         const clientCodeChallenge = generateCodeChallenge(clientCodeVerifier);
 
@@ -116,17 +127,15 @@ app.post('/token', express.json(), async (req, res) => {
             const expiresIn = 60 * 60;
             const expiration = Math.floor(Date.now() / 1000) + expiresIn;
 
-            // directly update the session in MongoDB with the new access token and expiration time in same session as the authorization code and state
+            // Directly update the session in MongoDB with the new access token and expiration time in same session as the authorization code and state
             store.set(sessionId, { state, expire: expiration, accessToken: 'sdf' }, function(err) {
                 if (err) {
-                    console.error(err);
+                    console.error('Error updating session:', err);
                     res.status(500).send('An error occurred');
                     return;
                 }
 
-                else{
-                    console.log('session updated');
-                }
+                console.log('Session updated');
                 
                 res.json({ access_token: 'sdf', expires_in: expiresIn, expiration });
             });
@@ -134,17 +143,13 @@ app.post('/token', express.json(), async (req, res) => {
             res.status(400).send('Invalid authorization code or state');
         }
     } catch (error) {
-        console.error(error);
-        // Handle error
+        console.error('Error in POST /token:', error);
         res.status(500).send('An error occurred');
     }
 });
 
 
-
 app.get('/data', (req, res) => {
-
-    console.log(req.headers.authorization), console.log(req.headers.state), console.log(req.headers.code_verifier);
    
     //get session data from mongodb and compare it with request, compare state, access token and check expiration time from mongodb and compare it with current time and send data if everything is correct , else send error, get data from request header for comparison
 
@@ -162,19 +167,35 @@ app.get('/data', (req, res) => {
         const expiration = sessions[0].session.expire;
         const accessToken = sessions[0].session.accessToken;
 
+//check if the access token is valid and not expired
 
-
-
-        if ( expiration > Math.floor(Date.now() / 1000)) {
-            console.log('Data sent');
-            res.json({ data: 'This is a secret data' });
+        if (req.headers.authorization === `Bearer ${accessToken}` && Math.floor(Date.now() / 1000) < expiration) {
+            //send data and timestamp in normal Time format humana readable
+            res.json({ data: 'This is the secret data', timestamp: new Date().toLocaleString() });
         } else {
-            res.status(401).send('Unauthorized wromng access token or state or expired token');
+            res.status(401).send('Unauthorized');
         }
+
+
+       
     });
 
 
 
+});
+
+// Route to handle logout requests
+app.get('/logout', (req, res) => {
+    // Clear all the data stored in MongoDB
+    store.clear(function (error) {
+        if (error) {
+            console.error('Error clearing MongoDB:', error);
+            res.status(500).send('An error occurred');
+            return;
+        }
+
+        res.send('Logged out');
+    });
 });
 
 const sslServer = https.createServer({

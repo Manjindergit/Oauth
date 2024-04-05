@@ -1,34 +1,40 @@
+// Load environment variables from .env file
 require('dotenv').config();
 
+// Import required modules
 const express = require('express');
 const axios = require('axios');
-const app = express();
 const https = require('https');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const session = require('express-session');
 const cors = require('cors');
+const fs = require('fs');
 
+// Initialize Express app
+const app = express();
+
+// Use CORS middleware to allow requests from the client origin
 app.use(cors({
     origin: 'https://localhost:4000', // Allow the client origin
     credentials: true // Allow credentials (cookies)
 }));
 
+// Use express-session middleware
 app.use(session({
     secret: 'password',
     resave: true,
     saveUninitialized: true,
     cookie: { secure: false },
     SameSite: 'lax',
-    maxAge: 60000
-
+    maxAge: 60000 // 1 minute
 }));
 
+// Define variables for state, client ID, and code verifier
 let state = null;
 const clientId = process.env.CLIENT_ID;
 const codeVerifier = crypto.randomBytes(64).toString('hex');
 
+// Route to handle login requests
 app.get('/login', async (req, res) => {
     state = generateState();
     const codeChallenge = generateCodeChallenge(codeVerifier);
@@ -36,12 +42,14 @@ app.get('/login', async (req, res) => {
     res.redirect(`https://localhost:3000/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`);
 });
 
-
+// Create a new HTTPS agent
 const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
 
+
+// Route to handle callback from authorization server
 app.get('/callback', async (req, res) => {
     try {
         const { code, state } = req.query;
@@ -50,45 +58,75 @@ app.get('/callback', async (req, res) => {
         const response = await axios.post('https://localhost:3000/token', { code, state, code_verifier: codeVerifier }, { httpsAgent });
         const { access_token: accessToken, expires_in: expiresIn } = response.data;
 
-        //if got data successfully, create a session for the user and store the access token, expires in and state in the session and create a button that would redirec to /data route to get the data
+        // Store access token, expiration time, and state in session
         req.session.accessToken = accessToken;
         req.session.expiresIn = expiresIn;
         req.session.state = state;
         req.session.save();
 
-        fetchData(accessToken, state, codeVerifier);
-        
-       
+        // Send a response with a button that redirects to /data and a logout button that redirects to /logout on the client app and is visible to the user
+        res.send(`
+        <button onclick="window.location.href='https://localhost:4000/data'">
+        Fetch Data
+    </button>
+    <button onclick="window.location.href='https://localhost:4000/logout'">
+        Logout
+    </button>
+    <div id="data"></div>
 
+            
 
-
-
+        `);
     } catch (error) {
         console.error(`Error in POST request: ${error}`);
         res.status(500).send('An error occurred.');
     }
-})
+});
 
-//create a function that would get the data from the server
-
-async function fetchData(accessToken, state, codeVerifier) {
-    try {
-        const response = await axios.get('https://localhost:3000/data', {
-            httpsAgent,
-            headers: {
-                Authorization: `Bearer ${accessToken}`
-            }
-        });
-
-        //display the data in the console and in the client app
-        console.log(response.data);
-        
-
-    } catch (error) {
-        console.error(`Error in GET request: ${error}`);
+// Route to handle data requests
+app.get('/data', (req, res) => {
+    if (!req.session.accessToken || !req.session.state || !req.session.expiresIn) {
+        res.status(401).send('Unauthorized');
+        return;
     }
-}
 
+    const html = `
+    <!DOCTYPE html>
+    <html>
+    <body>
+    <button id="fetchDataButton">Fetch Data</button>
+    <button onclick="window.location.href='https://localhost:4000/logout'">
+        Logout
+    </button>
+    <div id="data"></div>
+    <script>
+    document.getElementById('fetchDataButton').addEventListener('click', function() {
+        fetch('https://localhost:3000/data', {
+            headers: {
+                Authorization: 'Bearer ${req.session.accessToken}',
+                state: '${req.session.state}',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('data').innerText = JSON.stringify(data, null, 2);
+        })
+        .catch(error => console.error(error));
+    });
+    </script>
+    </body>
+    </html>
+    `;
+
+    res.send(html);
+});
+
+
+// Route to handle logout requests
+app.get('/logout', (req, res) => {
+    req.session.destroy();
+    res.redirect('https://localhost:3000/logout');
+});
 
 
 
