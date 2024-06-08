@@ -1,6 +1,4 @@
-Sure, here is the README in markdown format:
 
-```markdown
 # OAuth Demo README
 
 ## Overview
